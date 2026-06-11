@@ -23,6 +23,10 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+.npm-cache/
+backend/.npm-cache/
+frontend/.npm-cache/
+*.tsbuildinfo
 
 # IDE
 .idea/

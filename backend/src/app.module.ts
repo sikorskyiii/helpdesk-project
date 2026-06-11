@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import {
   appConfig,
   databaseConfig,
@@ -11,6 +12,11 @@ import {
   throttleConfig,
 } from './config';
 import { DatabaseModule } from './database/database.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { HealthModule } from './health/health.module';
+import { EmailModule } from './email/email.module';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -28,7 +34,18 @@ import { DatabaseModule } from './database/database.module';
       ],
     }),
     DatabaseModule,
-    // Feature modules will be added here in subsequent stages
+    EmailModule,
+    AuthModule,
+    UsersModule,
+    HealthModule,
+    // Remaining feature modules will be added in subsequent stages
+  ],
+  providers: [
+    // Apply JwtAuthGuard globally — routes opt-out with @Public()
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
   ],
 })
 export class AppModule {}
