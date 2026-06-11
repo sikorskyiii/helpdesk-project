@@ -1,0 +1,300 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum RoleName {
+  SUPER_ADMIN
+  ORG_ADMIN
+  AGENT
+  CUSTOMER
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum NotificationType {
+  TICKET_ASSIGNED
+  STATUS_CHANGED
+  NEW_COMMENT
+  MENTIONED
+  TICKET_CREATED
+  MEMBER_INVITED
+}
+
+enum StorageProvider {
+  LOCAL
+  S3
+}
+
+// ─────────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────────
+
+model User {
+  id                     String    @id @default(uuid()) @db.Uuid
+  email                  String    @unique @db.VarChar(255)
+  passwordHash           String    @db.VarChar(255)
+  firstName              String    @db.VarChar(100)
+  lastName               String    @db.VarChar(100)
+  avatarUrl              String?   @db.Text
+  isEmailVerified        Boolean   @default(false)
+  emailVerificationToken String?   @db.VarChar(255)
+  passwordResetToken     String?   @db.VarChar(255)
+  passwordResetExpires   DateTime?
+  isActive               Boolean   @default(true)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  ownedOrganizations   Organization[]       @relation("OrganizationOwner")
+  memberships          OrganizationMember[]
+  reportedTickets      Ticket[]             @relation("TicketReporter")
+  assignedTickets      Ticket[]             @relation("TicketAssignee")
+  comments             Comment[]
+  attachments          Attachment[]
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+  refreshTokens        RefreshToken[]
+  commentMentions      CommentMention[]
+  ticketHistoryChanges TicketHistory[]
+
+  @@index([email])
+  @@index([isActive])
+  @@map("users")
+}
+
+model Role {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        RoleName  @unique
+  description String?   @db.Text
+  createdAt   DateTime  @default(now())
+
+  members OrganizationMember[]
+
+  @@map("roles")
+}
+
+model Organization {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(255)
+  slug        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  logoUrl     String?  @db.Text
+  isActive    Boolean  @default(true)
+  ownerId     String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner   User                 @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  members OrganizationMember[]
+  tickets Ticket[]
+
+  @@index([slug])
+  @@index([ownerId])
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  userId         String   @db.Uuid
+  roleId         String   @db.Uuid
+  joinedAt       DateTime @default(now())
+  isActive       Boolean  @default(true)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id])
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+model Ticket {
+  id             String         @id @default(uuid()) @db.Uuid
+  title          String         @db.VarChar(500)
+  description    String         @db.Text
+  priority       TicketPriority @default(MEDIUM)
+  status         TicketStatus   @default(OPEN)
+  category       String?        @db.VarChar(100)
+  organizationId String         @db.Uuid
+  reporterId     String         @db.Uuid
+  assigneeId     String?        @db.Uuid
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization  Organization    @relation(fields: [organizationId], references: [id])
+  reporter      User            @relation("TicketReporter", fields: [reporterId], references: [id])
+  assignee      User?           @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  comments      Comment[]
+  attachments   Attachment[]
+  notifications Notification[]
+  history       TicketHistory[]
+
+  @@index([organizationId])
+  @@index([reporterId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+  @@map("tickets")
+}
+
+model Comment {
+  id         String    @id @default(uuid()) @db.Uuid
+  content    String    @db.Text
+  isInternal Boolean   @default(false)
+  ticketId   String    @db.Uuid
+  authorId   String    @db.Uuid
+  parentId   String?   @db.Uuid
+  isEdited   Boolean   @default(false)
+  editedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  ticket      Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author      User             @relation(fields: [authorId], references: [id])
+  parent      Comment?         @relation("CommentReplies", fields: [parentId], references: [id])
+  replies     Comment[]        @relation("CommentReplies")
+  attachments Attachment[]
+  mentions    CommentMention[]
+
+  @@index([ticketId])
+  @@index([authorId])
+  @@index([parentId])
+  @@map("comments")
+}
+
+model CommentMention {
+  id        String   @id @default(uuid()) @db.Uuid
+  commentId String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([commentId, userId])
+  @@map("comment_mentions")
+}
+
+model Attachment {
+  id              String          @id @default(uuid()) @db.Uuid
+  fileName        String          @db.VarChar(255)
+  originalName    String          @db.VarChar(255)
+  mimeType        String          @db.VarChar(100)
+  fileSize        Int
+  storageKey      String          @db.Text
+  storageProvider StorageProvider @default(LOCAL)
+  ticketId        String?         @db.Uuid
+  commentId       String?         @db.Uuid
+  uploadedById    String          @db.Uuid
+  createdAt       DateTime        @default(now())
+
+  ticket     Ticket?  @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  comment    Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  uploadedBy User     @relation(fields: [uploadedById], references: [id])
+
+  @@index([ticketId])
+  @@index([commentId])
+  @@map("attachments")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  message   String           @db.Text
+  metadata  Json?
+  isRead    Boolean          @default(false)
+  userId    String           @db.Uuid
+  ticketId  String?          @db.Uuid
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticket Ticket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead])
+  @@index([userId])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  action     String   @db.VarChar(100)
+  entityType String   @db.VarChar(50)
+  entityId   String?  @db.Uuid
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?  @db.VarChar(45)
+  userAgent  String?  @db.Text
+  userId     String?  @db.Uuid
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  token     String   @unique @db.VarChar(500)
+  userId    String   @db.Uuid
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  ipAddress String?  @db.VarChar(45)
+  userAgent String?  @db.Text
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model TicketHistory {
+  id          String   @id @default(uuid()) @db.Uuid
+  ticketId    String   @db.Uuid
+  changedById String   @db.Uuid
+  field       String   @db.VarChar(100)
+  oldValue    String?  @db.Text
+  newValue    String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  ticket    Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  changedBy User   @relation(fields: [changedById], references: [id])
+
+  @@index([ticketId])
+  @@index([changedById])
+  @@map("ticket_history")
+}
