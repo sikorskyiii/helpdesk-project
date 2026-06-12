@@ -17,6 +17,7 @@ import { UsersModule } from './users/users.module';
 import { HealthModule } from './health/health.module';
 import { EmailModule } from './email/email.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { TicketsModule } from './tickets/tickets.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
 @Module({
@@ -40,6 +41,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     UsersModule,
     HealthModule,
     OrganizationsModule,
+    TicketsModule,
     // Remaining feature modules will be added in subsequent stages
   ],
   providers: [
