@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { useLogout } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/auth.store';
 import { getInitials, cn } from '@/lib/utils';
+import { useUnreadCount } from '@/hooks/useNotifications';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -30,6 +31,8 @@ const NAV_ITEMS = [
 function NavItem({ href, label, icon: Icon }: { href: string; label: string; icon: any }) {
   const pathname = usePathname();
   const isActive = pathname === href || pathname.startsWith(href + '/');
+  const { data: unread } = useUnreadCount();
+  const showBadge = href === '/notifications' && (unread?.count ?? 0) > 0;
 
   return (
     <Link
@@ -42,7 +45,12 @@ function NavItem({ href, label, icon: Icon }: { href: string; label: string; ico
       )}
     >
       <Icon className="w-4 h-4 shrink-0" />
-      {label}
+      <span className="flex-1">{label}</span>
+      {showBadge && (
+        <span className="text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center">
+          {unread!.count > 99 ? '99+' : unread!.count}
+        </span>
+      )}
     </Link>
   );
 }

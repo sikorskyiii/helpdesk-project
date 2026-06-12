@@ -93,6 +93,43 @@ export class EmailService {
     });
   }
 
+  async sendStatusChanged(to: string, name: string, ticketTitle: string, ticketId: string, newStatus: string): Promise<void> {
+    const frontendUrl = this.configService.get('app.frontendUrl');
+    const ticketUrl = `${frontendUrl}/tickets/${ticketId}`;
+    const statusLabel = newStatus.replace('_', ' ');
+
+    await this.send({
+      to,
+      subject: `Ticket status changed: ${ticketTitle}`,
+      html: `
+        <h2>Hello, ${name}!</h2>
+        <p>The status of your ticket has changed to <strong>${statusLabel}</strong>:</p>
+        <p><strong>${ticketTitle}</strong></p>
+        <a href="${ticketUrl}" style="background:#3b82f6;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;">
+          View Ticket
+        </a>
+      `,
+    });
+  }
+
+  async sendMentioned(to: string, name: string, ticketTitle: string, ticketId: string, mentionedByName: string): Promise<void> {
+    const frontendUrl = this.configService.get('app.frontendUrl');
+    const ticketUrl = `${frontendUrl}/tickets/${ticketId}`;
+
+    await this.send({
+      to,
+      subject: `You were mentioned in: ${ticketTitle}`,
+      html: `
+        <h2>Hello, ${name}!</h2>
+        <p><strong>${mentionedByName}</strong> mentioned you in a comment on:</p>
+        <p><strong>${ticketTitle}</strong></p>
+        <a href="${ticketUrl}" style="background:#3b82f6;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;">
+          View Comment
+        </a>
+      `,
+    });
+  }
+
   private async send(options: { to: string; subject: string; html: string }): Promise<void> {
     const from = this.configService.get('email.from');
 
