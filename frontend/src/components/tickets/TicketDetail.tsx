@@ -7,6 +7,7 @@ import { StatusBadge, PriorityBadge } from './TicketBadge';
 import { ALL_STATUSES, ALL_PRIORITIES } from '@/lib/ticket-utils';
 import { formatDateTime, getInitials } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
+import { CommentsSection } from './CommentsSection';
 
 export function TicketDetail({ ticketId }: { ticketId: string }) {
   const router = useRouter();
@@ -15,7 +16,7 @@ export function TicketDetail({ ticketId }: { ticketId: string }) {
   const updateTicket = useUpdateTicket(ticketId);
   const deleteTicket = useDeleteTicket();
   const currentUser = useAuthStore((s) => s.user);
-  const [activeTab, setActiveTab] = useState<'details' | 'history'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'history'>('details');
 
   if (isLoading) {
     return (
@@ -75,7 +76,7 @@ export function TicketDetail({ ticketId }: { ticketId: string }) {
         <div className="lg:col-span-2 space-y-4">
           {/* Tabs */}
           <div className="flex gap-1 border-b">
-            {(['details', 'history'] as const).map((tab) => (
+            {(['details', 'comments', 'history'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -95,6 +96,10 @@ export function TicketDetail({ ticketId }: { ticketId: string }) {
               <h3 className="font-semibold mb-3 text-sm text-muted-foreground uppercase tracking-wide">Description</h3>
               <p className="whitespace-pre-wrap text-sm leading-relaxed">{ticket.description}</p>
             </div>
+          )}
+
+          {activeTab === 'comments' && (
+            <CommentsSection ticketId={ticketId} isAgent={isAssignee} />
           )}
 
           {activeTab === 'history' && (
